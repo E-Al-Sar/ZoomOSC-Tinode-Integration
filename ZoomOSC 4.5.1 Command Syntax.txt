@@ -1,0 +1,1904 @@
+ZOOMOSC VERSION 4.5.1
+
+ZOOMOSC
+COMMAND
+SYNTAX
+ZoomOSC adds a bi-directional Open Sound Control (OSC) interface to Zoom.
+Commands can be sent to the ZoomOSC app from third party hardware and
+software devices to control Zoom, and ZoomOSC can communicate back to
+those products with information about the Zoom meeting.
+This document describes the syntax for these OSC commands.
+The application's OSC messages can be divided into 3 major categories
+User Commands require targets, which can be either users/participants or groups.
+Global Commands do not use targets, and control general meeting or application
+settings.
+Outputs are the OSC messages that come out from ZoomOSC containing useful
+information. Some outputs are triggered by events of subscribed participants,
+others are triggered by a User or Global command and thus provide a response.
+
+REFRESHER ON
+OSC PROTOCOL
+ZoomOSC interacts with Open Sound Control as UDP.
+Here is an example ZoomOSC message:
+/zoom/userName/videoOn “Andy Carluccio”
+The address is delimited with “/” (in this case, the address is
+/zoom/userName/videoOn).
+The payloads follow the address and are delimited with whitespace.
+ZoomOSC payloads can be ints, floats, or strings.
+Multi word strings can be enclosed in quotes to pass as a single argument.
+Please reference the user manual for the control software you are using to
+determine how that program constructs and/or parses OSC.
+
+Every ZoomOSC Input starts with /zoom
+Constructing User Command to send to ZoomOSC
+To send a message to ZoomOSC, you must construct an address. The sections
+below are appended to /zoom to specify who to call the actions on.
+
+HOW DO YOU TARGET A USER?
+After /zoom, you may select a “target type” for the user you want to act on.
+The available target types are below.
+
+.../targetID
+
+{int targetIndex}
+
+A single user who is logged by index in the
+target list. NOTE: For this to succeed, you
+must have loaded or updated users into
+target memory before referencing.
+
+.../userName
+
+{str userName}
+
+A single zoom username, case sensitive
+and including spaces. Multiple participants
+with the same name will revert the target
+to the first participant it finds with that
+name
+
+.../galIndex
+
+{int galleryIndex}
+
+The zero-indexed position of the
+participant in the gallery.
+
+.../zoomID
+
+{int zoomID}
+
+The zoomID is randomly assigned when a
+participant joins, and will change if they
+leave and rejoin.
+
+.../galleryPosition [Mac Required]
+A single user at a specified gallery position
+identified by row and column (zero
+indexed).
+
+.../me
+Passes self as the target
+
+{str position in form
+"row, col" ie "0, 2"}
+
+N/A
+
+TARGET A GROUP OF USERS WITH A MACRO
+Instead of calling a target type, you can pass one of the below
+“group macros” as an alternative
+
+.../all
+
+Everyone in the Zoom call
+
+.../targets
+
+Everyone in the target list
+
+.../panelists
+
+All webinar panelists
+
+.../attendees
+
+All webinar attendees
+
+EXCLUDE USERS FROM A GROUP MACRO
+Another type of group macro is “exclusionary” and must be combined with
+a target type. For example, /zoom/allExcept/me/… would call the user
+action on everyone in the meeting except for the self user.
+
+.../allExcept/[TARGET TYPE]
+.../targetsExcept/[TARGET TYPE]
+.../panelistsExcept/[TARGET TYPE]
+.../attendeesExcept/[TARGET TYPE]
+
+MAKE A CUSTOM GROUP "FROM SCRATCH"
+Finally, it is also possible to define a custom group using the “users”
+keyword followed by the target type that will be used to designate the
+members of the group.
+
+.../users/[TARGET TYPE]
+
+ZOOMOSC
+COMMANDS
+
+EVERY ZOOMOSC INPUT STARTS WITH /ZOOM
+
+EXAMPLES
+/zoom/userName/chat “Andy” “Hello!”
+Send a “Hello” chat to user Andy
+/zoom/targetsExcept/userName/videoOff “Joe”
+Turn off video for everyone on the target list except for Joe
+/zoom/users/galIndex/addPin 2 6 8 3
+Create a multipin from the persons of gallery indices 2, 6, 8, and 3
+/zoom/targetID/videoOn 7
+Request that the user with targetID 7 turn on their video
+/zoom/users/zoomID/addSpot 58387672 48394821 48271291
+Create a multi spotlight from the persons using the raw zoomID system
+/zoom/all/lowerHand
+Lower the hands of all users in the Zoom call
+
+How to read the commands:
+Command Name
+This is a description of the command
+Here is an additional note which may give a warning
+or important information
+
+../commandAddress
+{int arg1 | str arg2}
+
+Mac Only M A C
+Windows Only W I N
+Paid, Pro Feature P R O
+
+Experimental (may have bugs) B E T A
+
+Please remember that the first arguments of any user action will be the designator
+for that user. The arguments listed in the spreadsheet are in addition to the user
+specification arguments and must be attached at the end of the payload list.
+
+USER COMMANDS
+VIDEO/MIC COMMANDS
+Request Video On
+Requests to turn on participant video
+
+../videoOn
+
+Set Video Off
+Turns off participant video
+
+../videoOff
+
+Toggle Video
+Toggles participant video on or off
+
+../toggleVideo
+
+Mute Mic
+Mutes participant mic
+
+../mute
+
+Unmute Mic
+Requests to unmute participant mic, unless pre-approved consent is
+given in Zoom settings. ZoomOSC will automatically accept requests to
+unmute.
+
+../unMute
+
+Toggle Mic
+Toggles participant mic on or off
+
+../toggleMute
+
+S P O T L I G H T C O M M A N D S (see global commands for clearSpot command)
+Spotlight
+Replaces current spotlight with a new participant spotlight
+
+../spot
+
+If called on a group, it will only spotlight the last user in the list.
+Add Spotlight
+Adds a new participant spotlight to the mutli-spot group
+
+../addSpot
+
+Un-Spotlight
+Removes a spotlight from a participant
+
+../unSpot
+
+Toggle Spotlight
+Toggles spotlight on or off from a participant
+
+../toggleSpot
+
+PRO
+
+PRO
+
+H A N D R A I S I N G C O M M A N D S (see global commands for lowerAllHands command)
+Raise Hand
+Raises Hand
+
+../raiseHand
+
+Lower Hand
+Lowers Hand
+
+../lowerHand
+
+Toggle Hand
+Toggles the raising or lowering of the hand
+
+../toggleHand
+../lowerHand
+
+WIN
+
+USER COMMANDS
+PIN COMMANDS
+
+(see page 13 for remote pin controls)
+
+Pin Participant
+Pins a participant
+
+../pin
+
+Add Pin
+Adds a new participant pin to the multi-pin group
+
+../addPin
+
+PRO
+
+Only Co-Hosts/Hosts. Other participants must be given permission by
+the host to multi-pin.
+Un-Pin Participant
+Removes a pin from a participant
+
+../unPin
+
+Pin to Second Screen
+Pins participant to the second screen
+
+../pin2
+
+Un-Pin from Second Screen
+Unpins participant from the second screen
+
+../unPin2
+
+Toggle Pin First Screen
+Toggles pin on or off from the first screen
+
+../togglePin
+
+PRO
+
+Toggle Pin Second Screen
+Toggles pin on or off from the second screen
+
+../togglePin2
+
+PRO
+
+Clear all Pins
+Clear all pins (from the first display, Zoom itself does not support
+multipinning on the second display at this time).
+
+../clearPin
+
+PRO
+
+VIEW COMMANDS
+Set Gallery View
+Changes screen to gallery view
+
+../setGalleryView
+
+Set Speaker View
+Changes screen to speaker view
+
+../setSpeakerView
+
+Next Gallery Page
+Changes screen to next page of Gallery View
+
+../galleryPageNext
+
+Previous Gallery Page
+Changes screen to previous page of Gallery View
+
+../galleryPagePrev
+
+USER COMMANDS
+USER ROLES AND ACTION COMMANDS
+Make Host
+Makes the defined participant the meeting host
+
+../makeHost
+
+Make Co-Host
+Makes the defined participant a meeting co-host
+
+../makeCoHost
+
+Reclaim Host
+Reclaims host role if originally the creator of the meeting
+
+../reclaimHost
+
+Only works if you are the original host of the meeting;
+must be called on self
+Revoke Co-Host
+Revokes co-host permission from participant
+
+../revokeCoHost
+
+Make Panelist
+Promotes a webinar attendee to a panelist
+
+../makePanelist
+
+Make Attendee
+Demotes a webinar panelist to an attendee
+
+../makeAttendee
+
+Eject from Meeting
+Kicks participant from meeting
+
+../eject
+
+Rename
+Change the name of a user
+
+../rename
+
+PRO
+
+Allow to Record
+Permit an attendee to record
+
+../allowToRecord
+
+PRO
+
+Disallow to Record
+Remove permission for an attendee to record
+
+../disallowToRecord
+
+PRO
+
+CHAT COMMANDS
+Send Chat
+Sends chat to a participant
+
+../chat
+{str chat message}
+
+Zoom chat is limited to 1024 characters.
+This command will send via a direct message
+to the selected user(s)
+
+WEBINARS
+Allow Attendee to Speak
+Allows a webinar attendee to speak
+
+../allowToSpeak
+
+PRO
+
+Disallow Attendee to Speak
+Disallows a webinar attendee to speak
+
+../disallowToSpeak
+
+PRO
+
+USER COMMANDS
+BREAKOUT ROOMS*
+Send User to Breakout Room
+Moves a specific user to a room, or moves that user
+between rooms
+
+../sendToBreakout
+{str breakout name |
+int breakout index}
+
+PRO
+BETA
+
+Remove User from Breakout Room
+Removes a specific user from a room
+
+../removeFromBreakout
+{str breakout name |
+int breakout index}
+
+PRO
+BETA
+
+Assign User to Breakout Room
+Assigns a specific user to a breakout room before
+opening. To move an already assigned user, un-assign
+first before re-assigning.
+
+../assignToBreakout
+{str breakout name |
+int breakout index}
+
+PRO
+BETA
+
+Un-assign User from Breakout Room
+Un-assigns a specific user to a breakout room before
+opening.
+
+../unassignFromBreakout
+{str breakout name |
+int breakout index}
+
+PRO
+BETA
+
+*INFORMATION ON BETA BREAKOUT CONTROLS
+The current implementation of breakouts in ZoomOSC is limited by the absence of Global UUID
+in the Zoom Meeting SDK. However, both internal and external teams have thoroughly tested
+and seen stable performance. Because there are significant "corner cases" arising from the
+complexity of breakout rooms, please use with caution and avoid managing breakout rooms
+both through ZoomOSC and through the UI simultaneously. We strongly encourage complete
+testing of your exact command flow before production use.
+
+Order of Breakout Room operations:
+1. CREATE breakout rooms
+2. CONFIGURE breakout rooms with OSC command
+3. ASSIGN participants to rooms
+4. OPEN breakout rooms
+5. SEND/REMOVE participants from open rooms
+
+WAITING ROOMS
+Send User to Waiting Room
+Sends a specific user to the waiting room if enabled in
+the meeting
+
+../sendToWaitingRoom
+
+PRO
+
+Admit User from Waiting Room
+Admits a specific user from the waiting room into the
+main meeting
+
+../admit
+
+PRO
+
+USER COMMANDS
+SCREENSHARE COMMANDS
+List Screens
+Lists all screens available for screenshare
+
+../listScreens
+
+PRO
+
+List Windows
+Lists all windows available for windowshare
+
+../listWindows
+
+PRO
+MAC
+
+Start Screenshare
+Starts a screenshare on defined screen
+Use the listScreen command first to identify monitor
+ID or names
+
+../startScreenShare
+{int screenID | str screenName}
+
+PRO
+
+Start Windowshare
+Starts a windowshare on defined window
+Use the listWindows command first to identify monitor
+ID or names
+
+../startWindowShare
+{int windowID | str windowName}
+
+PRO
+MAC
+
+Stop Share
+Stops sharing screen, window, camera, or audio
+
+../stopShare
+
+Start Screenshare (Primary Display)
+Starts screenshare on primary display only
+
+../startScreenSharePrimary
+
+Start Sharing Computer Audio (Only)
+Start "Share Computer Sound" (audio only)
+
+../startAudioShare
+
+Enable Computer Sound (for Sharing)
+Enables the computer audio share setting when
+sharing visual content
+
+../enableComputerSoundWhenSharing P R O
+
+Disable Computer Sound (for Sharing)
+Disables the computer audio share setting when
+sharing visual content
+
+../disableComputerSoundWhenSharing P R O
+
+Start Sharing Camera Source
+Starts sharing computer camera source
+
+../startCameraShare
+
+PRO
+
+Advance to Next Camera Share Source
+Cycle to the next shareable camera source while
+inside of camera sharing mode
+
+../shareNextCamera
+
+PRO
+
+Enable Video Share Optimization
+Sets screen share to prefer frame rate over resolution
+
+../enableOptimizeVideo
+
+PRO
+
+Disable Video Share Optimization
+Sets screen share to prefer resolution over frame rate
+
+../disableOptimizeVideo
+
+PRO
+
+Set Primary Window Size
+Adjust the primary window to a specific size
+
+../setWindowSize
+{int width | int height}
+
+PRO
+MAC
+BETA
+
+Set Primary Window Position
+Adjust the primary window's position on screen
+
+../setWindowPosition
+{int x| int y}
+
+PRO
+MAC
+BETA
+
+PRO
+WIN
+
+USER COMMANDS
+SETTINGS COMMANDS
+Display Usernames on Videos
+Displays usernames in the bottom left of participants
+
+../showUserNames
+
+Hide Usernames on Videos
+Hides usernames in the bottom left of participants
+
+../hideUserNames
+
+Show Non-Video Participants
+Shows non-video participants in gallery
+
+../showNonVideoParticipants
+
+Hide Non-Video Participants
+Hides non-video participants in gallery
+
+../hideNonVideoParticipants
+
+Enable “Original Sound”
+Enables "original sound" for audio
+
+../enableOriginalSound
+
+The command will work, but it helps to use the "show original
+audio setting in meeting"
+Disable “Original Sound”
+Disables "original sound" for audio
+
+../disableOriginalSound
+
+Hide Self View
+Hides your own video tile in the gallery
+
+../hideSelfView
+
+PRO
+MAC
+
+Show Self View
+Show your own video tile in the gallery
+
+../showSelfView
+
+PRO
+MAC
+
+../listCameraDevices
+
+PRO
+
+List All Mic Devices
+Lists all available mic devices
+
+../listMicDevices
+
+PRO
+
+List All Speaker Devices
+Lists all available speaker devices
+
+../listSpeakerDevices
+
+PRO
+
+Set Camera Device
+Changes camera device
+
+../setCameraDevice
+{string deviceID | int index}
+
+PRO
+
+../setMicDevice
+{string deviceID | int index}
+
+PRO
+
+../setSpeakerDevice
+{string deviceID | int index}
+
+PRO
+
+List All Camera Devices
+Lists all available camera devices
+
+Use the listCameraDevices or getCameraDevice
+command to get the deviceID or index
+Set Mic Device
+Changes mic device
+Use the listMicDevices or getMicDevice command to
+get the deviceID or index
+Set Speaker Device
+Changes speaker device
+Use the listSpeakerDevices or getSpeakerDevice
+command to get the deviceID or index
+
+USER COMMANDS
+SETTINGS COMMANDS CONTINUED
+Get Current Camera Device
+Lists current camera device in use
+
+../getCameraDevice
+
+PRO
+
+Get Current Mic Device
+Lists current mic device in use
+
+../getMicDevice
+
+PRO
+
+Get Current Speaker Device
+Lists current speaker device in use
+
+../getSpeakerDevice
+
+PRO
+
+List Virtual Backgrounds
+Lists all available virtual backgrounds
+
+../listBackgrounds
+
+PRO
+MAC
+
+Change Virtual Background
+Changes virtual background
+
+../setBackground
+{int index | str bgName}
+
+PRO
+MAC
+BETA
+
+Get Current Virtual Background
+Lists current virtual background in use
+
+../getBackground
+
+PRO
+MAC
+BETA
+
+Get Mic Level
+Returns the mic level
+
+../getMicLevel
+
+PRO
+
+Set Mic Level
+Sets the mic level to a value
+
+../setMicLevel
+{int 0> 100}
+
+PRO
+
+Get Speaker Volume
+Returns the system speaker volume
+
+../getSpeakerVolume
+
+PRO
+
+Set Speaker Volume
+Sets the system speaker volume to a value
+
+../setSpeakerVolume
+{int 0> 100}
+
+PRO
+
+Enable Mirror Video
+Mirrors self video
+
+../enableMirrorVideo
+
+PRO
+
+Disable Mirror Video
+Mirrors self video
+
+../disableMirrorVideo
+
+PRO
+
+Enable HD Video (Setting)
+Enable the HD Video Setting
+
+../enableHDVideo
+
+PRO
+
+Disable HD Video (Setting)
+Disable the HD Video Setting
+
+../disableHDVideo
+
+PRO
+
+Set Video Filter
+Set video filter
+
+../setVideoFilter
+
+PRO
+MAC
+BETA
+
+Use the listBackgrounds or the getBackground commands first
+to identify index or bgName
+
+GLOBAL COMMANDS
+GLOBAL COMMANDS
+Enable Users Unmuting
+Enables the meeting setting which allows participants to
+unmute
+
+/zoom/enableUsersUnmute
+
+Disable User Unmuting
+Disables the meeting setting which allows participants to
+unmute
+
+/zoom/disableUsersUnmute
+
+Mute All
+mutes all participants except host
+
+/zoom/all/mute
+
+Unmute All
+Unmutes all participants
+
+/zoom/all/unMute
+
+Lower All Raised Hands
+Lowers all raised hands in the meeting
+
+/zoom/lowerAllHands
+
+Clear Spotlight
+Clears all spotlights from meeting
+
+/zoom/clearSpot
+
+Ping ZoomOSC
+Sends a ping to ZoomOSC and review a pong response
+
+/zoom/ping
+{optional any argument to reply}
+
+Join a Meeting
+Joins a meeting with OSC arguments
+
+/zoom/joinMeeting
+{str meetingID}
+{str meetingPass}
+{str userName}
+
+PRO
+
+Leave Meeting
+Leaves current meeting
+
+/zoom/leaveMeeting
+
+PRO
+
+End Meeting
+Ends current meeting for all
+
+/zoom/endMeeting
+
+PRO
+
+Send Chat to Everyone
+Sends a chat message to all participants
+
+/zoom/chatAll
+{str message}
+
+Eject All Webinar Attendees
+Ejects all attendees from the webinar
+
+/zoom/ejectAttendees
+
+PRO
+
+Get Webinar Reaction Count
+Outputs the number of each emoji reaction for the webinar
+
+/zoom/getWebinarReactionCounts
+
+PRO
+
+Reset Webinar Reaction Counters
+Resets all webinar reaction counters to 0
+
+/zoom/resetWebinarReactionCounts
+
+PRO
+
+GLOBAL COMMANDS
+BREAKOUT ROOMS*
+PRO
+BETA
+
+Request Breakout Rooms List
+Commands ZoomOSC to respond with the breakout list
+Please note: the output OSC message is currently different on
+mac and win
+
+/zoom/listBreakouts
+
+Create Breakout Room
+Creates a breakout room while rooms are closed
+
+/zoom/createBreakout
+{string breakoutName |
+int bo_index}
+
+PRO
+BETA
+
+Delete Breakout Room
+Deletes a breakout room while rooms are closed
+
+/zoom/deleteBreakout
+{string breakoutName |
+int bo_index}
+
+PRO
+BETA
+
+Delete All Breakout Rooms
+Deletes all breakout Rooms
+
+/zoom/deleteAllBreakouts
+
+PRO
+BETA
+
+Open Breakout Rooms
+Opens breakout rooms
+
+/zoom/openBreakouts
+
+PRO
+BETA
+
+Close Breakout Rooms
+Closes breakout rooms
+
+/zoom/closeBreakouts
+
+PRO
+BETA
+
+Configure Breakout Rooms
+Configures breakout room settings, such as timers
+and duration
+
+/zoom/configureBreakouts
+{int postCloseSeconds}
+{int allowChooseBreakout
+(0=false, 1=true)
+{int allowReturnAtWill}
+{int autoMoveParticipants}
+{int useTimer}
+{int closeWithTimer}
+{int breakoutDurationSeconds}
+
+PRO
+BETA
+
+Broadcast Message to Breakout Rooms
+Send a message to all breakout rooms which appears
+at the top of the attendees screens
+
+/zoom/broadcastToBreakouts
+{string message}
+
+PRO
+BETA
+
+*INFORMATION ON BETA BREAKOUT CONTROLS
+Because there are significant "corner cases" arising from the complexity of breakout rooms,
+please use with caution and avoid managing breakout rooms both through ZoomOSC and
+through the UI simultaneously. We strongly encourage complete testing of your exact command
+flow before production use.
+
+Order of Breakout Room operations:
+1. CREATE breakout rooms
+2. CONFIGURE breakout rooms with OSC command
+3. ASSIGN participants to rooms
+4. OPEN breakout rooms
+5. SEND/REMOVE participants from open rooms
+
+GLOBAL COMMANDS
+MEETING AND WEBINAR Q&A*
+PRO
+
+Answer Question with Text
+ZoomOSC will post the supplied text as the answer to the
+designated question
+
+/zoom/answerQuestionText
+{string answer, string
+question_id}
+
+Mark Question as Answering Live
+The designated question will be marked as answering
+live
+
+/zoom/answerQuestionLive
+{string question_id}
+
+Finish Answering Question
+The designated question will be marked as having been
+completed
+
+/zoom/answerQuestionDone
+{string question_id}
+
+Dismiss Question
+The designated question will be dismissed
+
+/zoom/dismissQuestion
+{string question_id}
+
+Delete Question
+The designated question will be deleted
+
+/zoom/deleteQuestion
+{string question_id}
+
+Reopen Question
+The designated question will be reopened
+
+/zoom/reopenQuestion
+{string question_id}
+
+PRO
+
+Get Question List
+Request a list of all questions
+
+/zoom/getQuestionList
+
+PRO
+
+Get Question Info
+Get the details of a specific question
+
+/zoom/getQuestionInfo
+{string question_id}
+
+PRO
+
+Get Answer List
+Request a list of all answers to a single question or
+across all questions
+
+/zoom/getAnswerList
+{(optional) string question_id}
+
+PRO
+
+Get Answer Info
+Get the details of a specific answer
+
+/zoom/getAnswerInfo
+{string answer_id}
+
+PRO
+
+PRO
+
+PRO
+
+PRO
+
+PRO
+
+*INFORMATION ON QUESTION / ANSWER INTERFACE
+These commands require the unique ID of each question and answer, which is provided in the
+OSC Outputs for the Q&A system. Those IDs should be recalled so that you can take actions on
+questions and answers that were captured by your listening to the Q&A OSC outputs.
+
+GLOBAL COMMANDS
+POLLS
+Start Poll
+Start a poll
+
+/zoom/startPoll
+{string poll_ID}
+
+Stop Poll
+Stop a poll
+
+/zoom/stopPoll
+{string poll_ID}
+
+Relaunch Poll
+Relaunch a previously-stopped poll
+
+/zoom/relaunchPoll
+{string poll_ID}
+
+Get Poll Answers
+Request the answer information for a poll
+
+/zoom/getPollAnswers
+{string poll_ID}
+
+Get Poll Info
+Request the metadata of the poll
+
+/zoom/getPollInfo
+{string poll_ID}
+
+Get List of Polls
+Request a list of all the available polls
+
+/zoom/getPollList
+
+Get Poll Questions
+Request the list of questions within a poll
+
+/zoom/getPollQuestions
+{string poll_ID}
+
+GLOBAL COMMANDS
+RECORDING
+Start Local Recording
+Starts a local recording
+
+/zoom/startLocalRecording
+
+Pause Local Recording
+Pauses local recording
+
+/zoom/pauseLocalRecording
+
+Resume Local Recording
+Resumes a local recording after paused
+
+/zoom/resumeLocalRecording
+
+Stop Local Recording
+Stops local recording
+
+/zoom/stopLocalRecording
+
+Start Cloud Recording
+Starts a cloud recording
+
+/zoom/startCloudRecording
+
+Pause Cloud Recording
+Pauses cloud recording
+
+/zoom/pauseCloudRecording
+
+Resume Cloud Recording
+Resumes a cloud recording after paused
+
+/zoom/resumeCloudRecording
+
+Stop Cloud Recording
+Stops cloud recording
+
+/zoom/stopCloudRecording
+
+WAITING ROOMS AND ZAK JOIN
+Enable Waiting Room
+Enables waiting room for the meeting
+
+/zoom/enableWaitingRoom
+
+PRO
+
+Disable Waiting Room
+Disables waiting room for the meeting
+
+/zoom/disableWaitingRoom
+
+PRO
+
+Message Waiting Room
+Sends a message to the waiting room
+
+/zoom/messageWaitingRoom
+{str message}
+
+PRO
+
+Admit All from Waiting Room
+Admits all users from the waiting room
+
+/zoom/admitAll
+
+PRO
+
+ZAK Join Meeting
+Joins a meeting using a ZAK token
+
+/zoom/zakJoin
+{str zak}
+{str meetingID}
+{str name}
+[optional] {str password}
+
+PRO
+
+ZAK Start Meeting
+Starts a meeting using a ZAK token. Use 0 for meeting ID
+to use PMID
+
+/zoom/zakStart
+{str zak}
+{str meetingID}
+{str name}
+[optional] {str password}
+
+PRO
+
+GLOBAL COMMANDS
+MEMORY MANAGEMENT
+Update TargetIDs
+Assigns targetIDs to participants in memory
+
+/zoom/update
+
+Include
+Appends new participants to memory
+
+/zoom/include
+
+Load from Target List
+Loads participants from target list file
+
+/zoom/load
+
+Load via OSC
+Loads participants from OSC arguments
+
+/zoom/load
+{string userName1} .. {string userNameN}
+
+Save to Target List
+Saves participants to target list
+
+/zoom/save
+
+Reset
+Resets application memory containers
+
+/zoom/reset
+
+List*
+Prints memory to console
+
+/zoom/list
+
+*Returns list via OSC if subscribed and PRO
+
+GALLERY TRACKING AND DATA REQUESTS
+Gallery Track Mode
+Changes gallery tracking mode to participantID or
+zoomID
+
+/zoom/galTrackMode
+{int participantID = 0, zoomID = 1}
+
+Subscription Level
+Sets subscription level for user output data.
+None = 0,
+TargetList = 1,
+All = 2,
+Panelists = 3,
+OnlyGallery = 4
+
+/zoom/subscribe
+{int mode}
+
+Request Order of Gallery View
+Outputs the order of the gallery view
+
+/zoom/getGalleryOrder
+
+Request Order of Spotlights
+Outputs the order of the participants in a multi-spot group
+
+/zoom/getSpotOrder
+
+Request Gallery Count
+Outputs the number of participants in the gallery view
+
+/zoom/galCount
+
+OUTPUTS
+(uses /zoomosc/me/.. if originates from own self, /zoomosc/user/.. otherwise)
+User Prefix messages (4) output for all as:
+{int targetIndex}, {str userName}, {int galleryIndex}, {int zoomID}
+Additional arguments are listed below
+Participant Video Turned On
+Output message when subscribed participant turns video on
+
+/zoomosc/user|me/videoOn
+usual user messages (4)
+
+Participant Video Turned Off
+Output message when subscribed participant turns video off
+
+/zoomosc/user|me/videoOff
+usual user messages (4)
+
+Participant Muted
+Output message when subscribed participant mutes audio
+
+/zoomosc/user|me/mute
+usual user messages (4)
+
+Participant Unmuted
+Output message when subscribed participant unmutes audio
+
+/zoomosc/user|me/unMute
+usual user messages (4)
+
+Active Speaker Changed
+Output message whenever active speaker changes
+*on macOS, the user identity is not sent
+
+/zoomosc/user|me/activeSpeaker
+usual user messages (4)
+
+Spotlight Started
+Output message when subscribed participant is spotlit
+
+/zoomosc/user|me/spotlightOn
+usual user messages (4)
+
+Spotlight Stopped
+/zoomosc/user|me/spotlightOff
+Output message when subscribed participant is no longer spotlit
+usual user messages (4)
+User Role Updates*
+Output message when user roles have been changed
+0 - USERROLE_NONE
+1 - USERROLE_HOST
+2 - USERROLE_COHOST
+3 - UERROLE_PANELIST
+4 - USERROLE_BREAKOUTROOM_MODERATOR
+5 - USERROLE_ATTENDEE
+
+/zoomosc/user|me/roleChanged
+usual user messages (4),
+{int role}
+
+User Online
+Output message when subscribed participant becomes online
+
+/zoomosc/user|me/online
+usual user messages (4)
+
+User Offline
+Output message when subscribed participant becomes offline
+
+/zoomosc/user|me/offline
+usual user messages (4)
+
+User’s Hand Raised
+Output message when subscribed participant raises hand
+
+/zoomosc/user|me/handRaised
+usual user messages (4),
+{str message}
+
+User’s Hand Lowered
+Output message when subscribed participant lowers hand
+
+/zoomosc/user|me/handLowered
+usual user messages (4)
+
+Chat Message Received (From)
+Output message when chat message is received
+
+/zoomosc/user|me/chat
+usual user messages (4),
+{str message}
+{str message_id},
+{int message_type}
+
+0 - NONE
+1 - ALL
+2 - ALL PANELISTS
+3 - INDIVIDUAL PANELIST
+4 - INDIVIDUAL
+5 - WAITING ROOM
+
+WIN*
+
+OUTPUTS
+User Rename Event
+Output message when a rename event occurs (note that the
+new username will be contained in the user prefix)
+
+/zoomosc/user|me/userNameChanged
+usual user messages (4)
+{str oldUserName}
+
+List of Breakout Rooms Output
+Output message containing a list of all breakout rooms. Please
+note that at this time mac and windows send different
+formatted outputs
+
+/zoomosc/listBreakouts
+{int index}
+{str bo_name}
+
+BETA
+
+List Output
+Output message containing all user data as arguments
+
+/zoomosc/user|me/list
+usual user messages (4)
+
+PRO
+
+int targetCount: The number of users in the target list
+int listCount: The number of users in the sent list
+int userRole: The role of the user
+int onlineStatus: Whether the user is online (0 - offline, 1 =
+online)
+int videoStatus: Whether the user's video is on (0 = off, 1 = on)
+int audioStatus: Whether the user's mic is on (0 = off, 1 = on)
+int handRaised: Whether the user's hand is raised (0 = off, 1 = on)
+
+{int targetCount}
+{int listCount}
+{int userRole}
+{int onlineStatus}
+{in videoStatus}
+{int audioStatus}
+{int handRaised}
+
+Meeting Status Changed
+Output message when join or leave event occurs
+Status Codes
+Error Codes
+Exit Codes
+
+/zoomosc/meetingStatusChanged
+{int status_code,
+int error_code,
+int exit_code}
+
+Ping Reply (Pong)
+Output reply to a ping command containing information
+about the ZoomOSC application version and status
+
+/zoomosc/pong
+{any pingArg (zero if none sent)}
+{str zoomOSCversion}
+{int subscribeMode}
+{int galTrackMode}
+{int inCallStatus 0 or 1}
+{int number of targets}
+{int number of users in call}
+{int isPro (1=true, 0-false)}
+
+Gallery Order
+Output message with order of gallery view by participant,
+starting from top left
+
+/zoomosc/galleryOrder
+{int item0} ... {int itemN}
+
+Gallery Count
+Output message with number of participants in the gallery
+with video on
+
+/zoomosc/galleryCount
+{int count}
+
+Gallery Shape
+Output message with the shape of the gallery in rows and
+columns
+
+/zoomosc/galleryShape
+{int rows} {int cols}
+
+Spotlight Order
+Output message with order of spotlit participants, starting
+from top left
+
+/zoomosc/spotOrder
+{int item0} ... {int itemN}
+
+MAC
+
+OUTPUTS
+/zoomosc/user|me/emoji changed
+usual user messages (4)
+{int emojiID}
+
+User Emoji Changed
+Output message when a participant changed their emoji
+reaction.
+1 - Clapping , 2 - Thumbs Up, 3 - Heart, 4 - Joy, 5 - Open Mouth, 6 - Tada
+
+User is Speaking
+Output message with a subscribed participant is speaking
+
+/zoomosc/user|me/isSpeaking
+usual user messages (4)
+
+User Stopped Speaking
+Output message when a subscribed participant stops speaking
+
+/zoomosc/user|me/stoppedSpeaking
+usual user messages (4)
+
+User Joined Waiting Room
+Output message when a user joins the waiting room
+
+/zoomosc/user|me/joinedWaitingRoom
+usual user messages (4)
+
+User Leaves Waiting Room
+Output message when a user leaves the waiting room
+
+/zoomosc/user|me/leftWaitingRoom
+usual user messages (4)
+
+Webinar Emoji Reaction Count
+Output number of emoji reactions by type, listed
+1 - Clapping , 2 - Thumbs Up, 3 - Heart, 4 - Joy, 5 - Open Mouth, 6 - Tada
+
+/zoomosc/webinarReactionCounts
+{int clapping, int thumbsup,
+int heart, int joy, int openmouth,
+int tada}
+
+PRO
+
+User started sharing audio
+Output message when a user starts sharing audio
+
+/zoomosc/user|me/audioShareStarted
+usual user messages (4)
+
+User stopped sharing audio
+Output message when a user stops sharing audio
+
+/zoomosc/user|me/audioShareStopped
+usual user messages (4)
+
+User started sharing video
+Output message when a user starts sharing video
+
+/zoomosc/user|me/videoShareStarted
+usual user messages (4)
+
+User stopped sharing video
+Output message when a user stops sharing video
+
+/zoomosc/user|me/videoShareStopped
+usual user messages (4)
+
+Live Transcription Data
+Output message containing the live transcription in a given
+language, with codes for operation changes
+
+/zoomosc/user|me/transcriptMessage
+usual user messages (4) for SPEAKER
+{str transcribed_text,
+int operation_type,
+str enum_language}
+
+0 - None
+1 - Add
+2 - Update
+3 - Delete
+4 - Complete
+5 - Not Supported
+For language enums, please manually check the output as these are not predetermined
+
+OUTPUTS
+Webinar Question Deleted
+Output message when someone deletes a question in a
+webinar.
+
+/zoomosc/user|me/deletedQuestion
+usual user messages (4) for ASKER
+{str question, str question_id}
+
+Webinar Question Asked
+Output message when an attendee asks a question in a
+webinar.
+
+/zoomosc/user|me/askedQuestion
+usual user messages (4) for ASKER
+{str question, str question_id}
+
+Answer Deleted for Question
+Output message when someone deletes an answer to a
+webinar question
+
+/zoomosc/user|me/deletedAnswer
+usual user messages (4) for ANSWERER
+{str answer, int votes, str question_id,
+str answer_id}
+
+Answered Question with Text
+Output message when a question has been answered via text
+
+/zoomosc/user|me/answeredQuestionText
+usual user messages (4) for ANSWERER
+{str answer, int votes, str question_id, str
+answer_id}
+
+Question Dismissed
+Output message when someone dismisses a webinar question
+
+/zoomosc/user|me/questionDismissed
+usual user messages (4) for ASKER
+{str question, int votes, str question_id}
+
+Question Answered Live
+Output message when a question has been marked as
+answering live
+
+/zoomosc/user|me/questionAnsweredLive
+usual user messages (4) for ASKER
+{str question, int votes, str question_id}
+
+Completed Live Answer to Question
+Output message when a question that was marked for live
+answering is marked as having been answered
+
+/zoomosc/user|me/questionAnsweredDone
+usual user messages (4) for ASKER
+{str question, int votes, str question_id}
+
+Question Answered Live
+Output message when a question has been marked as
+answering live
+
+/zoomosc/user|me/questionAnsweredLive
+usual user messages (4) for ASKER
+{str question, int votes, str question_id}
+
+List of Questions
+Outputs a series of messages corresponding to the questions
+asked in a meeting or webinar
+
+/zoomosc/questionList
+{int list_index, int list_size,
+str question_id, str question_conent}
+
+List of Answers
+Outputs a series of messages corresponding to the answers to
+an individual or all questions asked in a meeting or webinar
+
+/zoomosc/answerList
+{int list_index, int list_size,
+str answer_id, str answer_conent}
+
+Question Information
+Output all information on a given question
+
+/zoomosc/questionInfo
+{int q_id, str sender_name,
+str q_content, bool isSenderMyself,
+int timestamp, bool isAnonymous,
+bool isMarkedAnswered,
+bool isMarkedDismissed, int votes,
+bool hasLiveAnswers,
+bool hasTextAnswers,
+bool isSelfUpVoiting, bool isSelfAnswering}
+
+If a question is asked as anonymous, the USER PREFIX is {-1, "Anonymous Attendee", -1, -1}
+
+OUTPUTS
+List of Polls
+Output message series for each available poll.
+Poll Status Codes
+ZoomSDKPollingStatus_Initial = 0
+ZoomSDKPollingStatus_Started = 1
+ZoomSDKPollingStatus_ShareResult = 2
+ZoomSDKPollingStatus_Stopped = 3
+
+/zoomosc/polls
+{int list_index,
+int list_size,
+str poll_id,
+str poll_name,
+int pollStatus,
+int pollType,
+int isPollLibrary,
+int numQuestions}
+
+Poll Type Codes
+ZoomSDKPollingType_Unknown = 0
+ZoomSDKPollingType_Poll = 1
+ZoomSDKPollingType_Quiz = 2
+List of Poll Answers
+Output message series for answer statistics on the
+requested poll
+
+/zoomosc/pollAnswers
+{int list_index,
+int list_size,
+str poll_id,
+str poll_question_id,
+str poll_sub_question_id,
+str poll_answer_id,
+str poll_answer_name,
+int numChosen}
+
+List of Poll Question Info
+Output message series for questions on the requested poll
+
+/zoomosc/pollQuestions
+{int list_index,
+int list_size,
+str poll_id,
+str poll_question_id,
+str poll_question_name,
+int question_type}
+
+Question Type Codes
+ZoomSDKPollingQuestionType_Unknown = 0
+ZoomSDKPollingQuestionType_Single = 1
+ZoomSDKPollingQuestionType_Multi = 2
+ZoomSDKPollingQuestionType_Matching = 3
+ZoomSDKPollingQuestionType_RankOrder = 4
+ZoomSDKPollingQuestionType_ShortAnswer = 5
+ZoomSDKPollingQuestionType_LongAnswer = 6
+ZoomSDKPollingQuestionType_FillBlank = 7
+ZoomSDKPollingQuestionType_NPS = 8
+ZoomSDKPollingQuestionType_Dropdown = 9
+Poll Metadata Info
+Output message containing the metadata of a poll
+Poll Status Codes
+ZoomSDKPollingStatus_Initial = 0
+ZoomSDKPollingStatus_Started = 1
+ZoomSDKPollingStatus_ShareResult = 2
+ZoomSDKPollingStatus_Stopped = 3
+Poll Type Codes
+ZoomSDKPollingType_Unknown = 0
+ZoomSDKPollingType_Poll = 1
+ZoomSDKPollingType_Quiz = 2
+
+/zoomosc/pollInfo
+{str poll_id,
+str poll_name,
+int pollStatus,
+int pollType,
+int isPollLibrary,
+int numQuestions}
+
+OUTPUTS
+Mic Devices List
+Output message containing mic devices information
+
+/zoomosc/user|me/micDevices
+{int itemIndex}, {int listSize},
+{str deviceID}, {str deviceName},
+{int isSelected}
+
+PRO
+
+Speaker Devices List
+Output message containing speaker devices information
+
+/zoomosc/user|me/speakerDevices
+{int itemIndex}, {int listSize}, {str
+deviceID}, {str deviceName}, {int
+isSelected}
+
+PRO
+
+Camera Devices List
+Output message containing camera devices information
+
+/zoomosc/user|me/cameraDevices
+{int itemIndex}, {int listSize}, {str
+deviceID}, {str deviceName}, {int
+isSelected}
+
+PRO
+
+Virtual Background List
+Output message containing virtual background information
+
+/zoomosc/user|me/backgrounds
+{int itemIndex}, {int listSize},
+{str backgroundName}
+
+PRO
+MAC
+
+Windows List
+Output message containing a list of windows
+
+/zoomosc/user|me/windows
+{str windowID} {str windowName}
+
+PRO
+MAC
+
+Screens List
+Output message containing a list of screens for screenshare
+
+/zoomosc/user|me/screens
+{str screenID} {str screenName}
+
+PRO
+
+Current Mic Device
+Output message containing current mic device
+
+/zoomosc/user|me/micDevice
+{str deviceID} {str deviceName}
+
+PRO
+
+Current Speaker Device
+Output message containing current speaker device
+
+/zoomosc/user|me/speakerDevice
+{str deviceID} {str deviceName}
+
+PRO
+
+Current Camera Device
+Output message containing current camera device
+
+/zoomosc/user|me/cameraDevice
+{str deviceID} {str deviceName}
+
+PRO
+
+Current Virtual Background
+Output message containing current virtual background
+
+/zoomosc/user|me/background
+{str bgID} {str bgName}
+
+PRO
+MAC
+
+Current Video Filter
+Output message containing current video filter
+
+/zoomosc/user|me/filter
+{str filterID} {str filterName}
+
+PRO
+MAC
+
+Mic Level
+Output message with mic level
+
+/zoomosc/micLevel
+{int 0..100 level}
+
+PRO
+
+Speaker Volume
+Output message with speaker volume
+
+/zoomosc/speakerVolume
+{int 0..100 volume}
+
+PRO
+
+Waiting Room User List
+Output message containing a list of participants in the
+waiting room
+
+/zoomosc/waitingRoomUserList
+usual user messages (4)
+
+RESOURCES
+SIGN UP FOR LIMINAL'S NEWSLETTER TO STAY
+UP TO DATE ON UPDATES AND NEW RELEASES
+
+SUBSCRIBE TO LIMINAL ON YOUTUBE FOR
+TRAININGS AND TUTORIALS
+
+
