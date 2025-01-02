@@ -92,7 +92,9 @@
         "message": {
           "pub": {
             "topic": "{currentTopic}",
-            "content": "{message}"
+            "content": {
+              "text": "{message}"
+            }
           }
         }
       }
@@ -100,18 +102,30 @@
     "chatUser": {
       "zoomOSC": {
         "address": "/zoomosc/user/chat",
-        "params": ["targetIndex", "userName", "galleryIndex", "zoomId", "message", "messageId", "messageType"]
+        "params": ["targetIndex", "userName", "galleryIndex", "zoomId", "message", "messageId"]
       },
       "tinode": {
         "action": "receiveMessage",
         "message": {
           "pub": {
+            "id": "{messageId}",
             "topic": "{currentTopic}",
             "head": {
-              "from": "{userName}",
-              "messageId": "{messageId}"
+              "from": "{tinodeId}",
+              "userName": "{userName}",
+              "zoomId": "{zoomId}",
+              "messageType": "chat"
             },
-            "content": "{message}"
+            "content": {
+              "fmt": [
+                {
+                  "at": 0,
+                  "len": "{messageLength}",
+                  "tp": "ZM"
+                }
+              ],
+              "text": "{message}"
+            }
           }
         }
       }

@@ -52,7 +52,10 @@ class ZoomTinodeBridge {
                 winston.format.json()
             ),
             transports: [
-                new winston.transports.File({ filename: this.config.logging.file }),
+                new winston.transports.File({ 
+                    filename: path.join(__dirname, this.config.logging.file),
+                    options: { flags: 'w' }  
+                }),
                 new winston.transports.Console()
             ]
         });
@@ -65,7 +68,10 @@ class ZoomTinodeBridge {
                 winston.format.json()
             ),
             transports: [
-                new winston.transports.File({ filename: 'ignored_commands.log' }),
+                new winston.transports.File({ 
+                    filename: path.join(__dirname, 'ignored_commands.log'),
+                    options: { flags: 'w' }
+                }),
                 new winston.transports.Console()
             ]
         });
@@ -77,7 +83,10 @@ class ZoomTinodeBridge {
                 winston.format.json()
             ),
             transports: [
-                new winston.transports.File({ filename: 'pertinent_commands.log' }),
+                new winston.transports.File({
+                    filename: path.join(__dirname, 'pertinent_commands.log'), 
+                    options: { flags: 'w' }
+                }),
                 new winston.transports.Console()
             ]
         });
@@ -136,7 +145,10 @@ class ZoomTinodeBridge {
 
         this.ws.on('message', (data) => {
             const msg = JSON.parse(data);
-            this.logger.debug('Received message:', msg);
+            this.logger.debug('Received message from Tinode:', {
+                type: msg.ctrl ? 'ctrl' : msg.data ? 'data' : msg.pres ? 'pres' : 'unknown',
+                message: msg
+            });
 
             // Handle server version response
             if (msg.ctrl && msg.ctrl.params && msg.ctrl.params.ver) {
@@ -171,36 +183,77 @@ class ZoomTinodeBridge {
                 this.logger.info('Topic created/updated:', msg.ctrl.topic);
                 this.currentTopic = msg.ctrl.topic;
             }
+            // Handle pub message responses
+            else if (msg.ctrl && msg.ctrl.id && msg.ctrl.id.startsWith('msg')) {
+                if (msg.ctrl.code === 200) {
+                    this.logger.info('Message successfully delivered to Tinode', msg.ctrl);
+                } else {
+                    this.logger.error('Failed to deliver message to Tinode', {
+                        error: msg.ctrl,
+                        code: msg.ctrl.code,
+                        text: msg.ctrl.text
+                    });
+                }
+            }
             // Handle data messages
             else if (msg.data) {
                 this.handleTinodeMessage(msg.data);
             }
             // Handle errors
             else if (msg.ctrl && msg.ctrl.code >= 400) {
-                this.logger.error('Server error:', msg.ctrl);
-                // Only close on fatal errors, not on 404
-                if (msg.ctrl.code >= 500 && this.ws.readyState === WebSocket.OPEN) {
-                    this.ws.close();
+                this.logger.error('Server error:', {
+                    ctrl: msg.ctrl,
+                    text: msg.ctrl.text,
+                    code: msg.ctrl.code
+                });
+                if (msg.ctrl.text === "unknown request") {
+                    this.logger.error('Malformed message payload');
                 }
             }
         });
 
         this.ws.on('error', (error) => {
-            this.logger.error('WebSocket error:', error);
+            this.logger.error('WebSocket error:', {
+                error: error.message,
+                stack: error.stack,
+                type: error.type,
+                code: error.code,
+                isConnected: this.isConnected,
+                wsState: this.ws ? this.ws.readyState : 'no websocket'
+            });
             this.isConnected = false;
+            
             // Try to reconnect on error
-            setTimeout(() => this.setupTinodeClient(), 5000);
+            if (this.reconnectAttempts < 5) {
+                this.reconnectAttempts++;
+                const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+                this.logger.info(`Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts})`);
+                setTimeout(() => this.setupTinodeClient(), delay);
+            } else {
+                this.logger.error('Max reconnection attempts reached, giving up');
+            }
         });
 
         this.ws.on('close', (code, reason) => {
             this.logger.warn('WebSocket closed:', {
                 code: code,
-                reason: reason ? reason.toString() : 'No reason provided'
+                reason: reason ? reason.toString() : 'No reason provided',
+                isConnected: this.isConnected,
+                wsState: this.ws ? this.ws.readyState : 'no websocket',
+                currentTopic: this.currentTopic
             });
             this.isConnected = false;
+            
             // Try to reconnect on close if it wasn't intentional
             if (code !== 1000) {
-                setTimeout(() => this.setupTinodeClient(), 5000);
+                if (this.reconnectAttempts < 5) {
+                    this.reconnectAttempts++;
+                    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+                    this.logger.info(`Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts})`);
+                    setTimeout(() => this.setupTinodeClient(), delay);
+                } else {
+                    this.logger.error('Max reconnection attempts reached, giving up');
+                }
             }
         });
     }
@@ -374,10 +427,19 @@ class ZoomTinodeBridge {
     }
 
     handleTinodeMessage(data) {
-        this.logger.debug('Received Tinode message:', data);
+        this.logger.info('Received Tinode message:', {
+            topic: data.topic,
+            currentTopic: this.currentTopic,
+            hasContent: !!data.content,
+            timestamp: new Date().toISOString()
+        });
         
         // Only process messages in our bridge topic
         if (data.topic !== this.currentTopic) {
+            this.logger.debug('Ignoring message from different topic', {
+                messageTopic: data.topic,
+                expectedTopic: this.currentTopic
+            });
             return;
         }
 
@@ -387,8 +449,22 @@ class ZoomTinodeBridge {
             const head = data.head || {};
             const { from, userName, zoomId, messageType, replyTo } = head;
 
+            this.logger.info('Processing Tinode message:', {
+                from,
+                userName,
+                zoomId,
+                messageType,
+                hasReplyTo: !!replyTo,
+                text: text.substring(0, 100), // Log first 100 chars only
+                timestamp: new Date().toISOString()
+            });
+
             // Skip messages that originated from Zoom (to avoid loops)
             if (messageType === 'chat' && zoomId) {
+                this.logger.debug('Skipping Zoom-originated message', {
+                    messageType,
+                    zoomId
+                });
                 return;
             }
 
@@ -401,6 +477,11 @@ class ZoomTinodeBridge {
                 const replyToParticipant = this.participants.get(parseInt(replyToZoomId));
                 if (replyToParticipant) {
                     zoomMessage = `@${replyToParticipant.name} ${zoomMessage}`;
+                    this.logger.debug('Formatted reply message', {
+                        originalText: text,
+                        formattedMessage: zoomMessage,
+                        replyToUser: replyToParticipant.name
+                    });
                 }
             }
 
@@ -415,9 +496,24 @@ class ZoomTinodeBridge {
             }
 
             // Send formatted message to ZoomOSC
-            this.sendOSCMessage('/zoom/chatAll', [
-                `${senderName}: ${zoomMessage}`
-            ]);
+            try {
+                this.sendOSCMessage('/zoom/chatAll', [
+                    `${senderName}: ${zoomMessage}`
+                ]);
+                this.logger.info('Successfully sent message to ZoomOSC', {
+                    senderName,
+                    message: zoomMessage.substring(0, 100), // Log first 100 chars only
+                    timestamp: new Date().toISOString()
+                });
+            } catch (err) {
+                this.logger.error('Failed to send message to ZoomOSC', {
+                    error: err.message,
+                    stack: err.stack,
+                    senderName,
+                    message: zoomMessage,
+                    timestamp: new Date().toISOString()
+                });
+            }
         }
     }
 
@@ -467,17 +563,25 @@ class ZoomTinodeBridge {
     }
 
     spawnLogWindows() {
-        // Spawn a PowerShell window for ignored commands using Get-Content
-        spawn('powershell.exe', ['-NoExit', '-Command', 'Get-Content ignored_commands.log -Wait'], {
-            detached: true,
-            shell: true
-        });
+        const platform = process.platform;
+        const logFile1 = path.join(__dirname, 'bridge.log');
+        const logFile2 = path.join(__dirname, 'ignored_commands.log');
 
-        // Spawn a PowerShell window for pertinent commands using Get-Content
-        spawn('powershell.exe', ['-NoExit', '-Command', 'Get-Content pertinent_commands.log -Wait'], {
-            detached: true,
-            shell: true
-        });
+        // Ensure log directory exists
+        const logDir = path.dirname(logFile1);
+        if (!fs.existsSync(logDir)) {
+            fs.mkdirSync(logDir, { recursive: true });
+        }
+
+        if (platform === 'win32') {
+            spawn('powershell.exe', ['-Command', `Start-Process PowerShell.exe -ArgumentList '-NoExit', '-Command', 'Get-Content -Path "${logFile1}" -Wait'`]);
+            spawn('powershell.exe', ['-Command', `Start-Process PowerShell.exe -ArgumentList '-NoExit', '-Command', 'Get-Content -Path "${logFile2}" -Wait'`]);
+        } else if (platform === 'darwin' || platform === 'linux') {
+            spawn('osascript', ['-e', `tell application "Terminal" to do script "tail -f ${logFile1}"`]);
+            spawn('osascript', ['-e', `tell application "Terminal" to do script "tail -f ${logFile2}"`]);
+        } else {
+            this.logger.warn(`Unsupported platform for spawning log windows: ${platform}`);
+        }
     }
 
     handleOSCMessage(oscMsg) {
@@ -551,22 +655,22 @@ class ZoomTinodeBridge {
         const { userName, zoomId } = params;
         this.logger.debug(`User online: ${userName} (${zoomId})`);
         
-        // Create a unique Tinode-compatible user ID from Zoom ID
         const tinodeUserId = `zoom${zoomId}`;
         
-        // Track participant with extended info
         this.participants.set(zoomId, {
-            name: userName,
+            name: userName, 
             tinodeId: tinodeUserId,
             joinTime: Date.now()
         });
 
-        // Create/update user in Tinode if needed
         if (this.isConnected && this.ws.readyState === WebSocket.OPEN) {
             const accMsg = {
                 "acc": {
                     "id": "acc" + Date.now(),
                     "user": tinodeUserId,
+                    "scheme": "basic",
+                    "secret": tinodeUserId,
+                    "login": true,
                     "desc": {
                         "public": {
                             "fn": userName,
@@ -580,16 +684,17 @@ class ZoomTinodeBridge {
             };
             this.ws.send(JSON.stringify(accMsg));
             
-            // Send presence message after account creation
-            const presMsg = {
-                ...tinodeConfig.message,
-                pres: {
-                    ...tinodeConfig.message.pres,
-                    src: tinodeUserId,
-                    what: "on"
+            // Subscribe user to the main topic after account creation
+            const subMsg = {
+                "sub": {
+                    "id": "sub" + Date.now(),
+                    "topic": this.currentTopic,
+                    "get": {
+                        "what": "sub desc data del"
+                    }
                 }
             };
-            this.ws.send(JSON.stringify(presMsg));
+            this.ws.send(JSON.stringify(subMsg));
         }
     }
 
@@ -597,32 +702,50 @@ class ZoomTinodeBridge {
         const { userName, zoomId } = params;
         this.logger.debug(`User offline: ${userName} (${zoomId})`);
         
-        // Remove from tracking
         this.participants.delete(zoomId);
 
-        // Send presence message to Tinode
-        if (this.isConnected && this.currentTopic && this.ws.readyState === WebSocket.OPEN) {
-            const presMsg = {
-                ...tinodeConfig.message,
-                pres: {
-                    ...tinodeConfig.message.pres,
-                    src: zoomId.toString()
+        if (this.isConnected && this.ws.readyState === WebSocket.OPEN) {
+            const accMsg = {
+                "acc": {
+                    "id": "acc" + Date.now(),
+                    "user": `zoom${zoomId}`,
+                    "status": "deleted"
                 }
             };
-            this.ws.send(JSON.stringify(presMsg));
+            this.ws.send(JSON.stringify(accMsg));
         }
     }
 
     handleChatUser(params, tinodeConfig) {
         const { userName, zoomId, message, messageId } = params;
-        this.logger.debug(`Chat from ${userName} (${zoomId}): ${message}`);
+        
+        // Enhanced logging for incoming message
+        this.logger.info('Received chat message from ZoomOSC:', {
+            userName,
+            zoomId,
+            message,
+            messageId,
+            timestamp: new Date().toISOString()
+        });
 
         // Get the Tinode user ID for this Zoom participant
         const participant = this.participants.get(zoomId);
         if (!participant) {
-            this.logger.warn(`Unknown participant ${zoomId} trying to send message`);
+            this.logger.error(`Unknown participant ${zoomId} trying to send message`, {
+                currentParticipants: Array.from(this.participants.entries()),
+                message: message,
+                timestamp: new Date().toISOString()
+            });
             return;
         }
+
+        // Log connection state
+        this.logger.info('Connection state:', {
+            isConnected: this.isConnected,
+            currentTopic: this.currentTopic,
+            wsReadyState: this.ws ? this.ws.readyState : 'no websocket',
+            timestamp: new Date().toISOString()
+        });
 
         // Forward to Tinode with proper formatting
         if (this.isConnected && this.currentTopic && this.ws.readyState === WebSocket.OPEN) {
@@ -641,30 +764,36 @@ class ZoomTinodeBridge {
                             {
                                 "at": 0,
                                 "len": message.length,
-                                "tp": "ZM"  // Custom type for Zoom messages
+                                "tp": "ZM"
                             }
                         ],
                         "text": message
                     }
                 }
             };
-            
-            // Check if this is a reply to another message
-            if (message.startsWith('@')) {
-                const replyMatch = message.match(/^@([^\s]+)/);
-                if (replyMatch) {
-                    const replyToUser = replyMatch[1];
-                    // Find the participant being replied to
-                    const replyToParticipant = Array.from(this.participants.values())
-                        .find(p => p.name === replyToUser);
-                    
-                    if (replyToParticipant) {
-                        pubMsg.pub.head.replyTo = replyToParticipant.tinodeId;
-                    }
-                }
-            }
 
-            this.ws.send(JSON.stringify(pubMsg));
+            try {
+                this.ws.send(JSON.stringify(pubMsg));
+                this.logger.info('Successfully sent message to Tinode', {
+                    messageId: pubMsg.pub.id,
+                    topic: this.currentTopic,
+                    timestamp: new Date().toISOString()
+                });
+            } catch (err) {
+                this.logger.error('Failed to send message to Tinode', {
+                    error: err.message,
+                    stack: err.stack,
+                    pubMsg,
+                    timestamp: new Date().toISOString()
+                });
+            }
+        } else {
+            this.logger.error('Cannot send message - connection state invalid', {
+                isConnected: this.isConnected,
+                currentTopic: this.currentTopic,
+                wsReadyState: this.ws ? this.ws.readyState : 'no websocket',
+                timestamp: new Date().toISOString()
+            });
         }
     }
 
