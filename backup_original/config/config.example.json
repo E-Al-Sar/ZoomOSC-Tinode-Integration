@@ -1,0 +1,16 @@
+{
+  "tinode": {
+    "host": "localhost",
+    "port": 6060,
+    "apiKey": "TINODE_API_KEY",
+    "secure": false
+  },
+  "osc": {
+    "host": "127.0.0.1",
+    "port": 9000
+  },
+  "logging": {
+    "level": "info",
+    "file": "bridge.log"
+  }
+} 

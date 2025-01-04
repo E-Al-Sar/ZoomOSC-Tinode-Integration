@@ -1,0 +1,171 @@
+{
+  "participantManagement": {
+    "queryParticipants": {
+      "zoomOSC": {
+        "address": "/zoom/list",
+        "params": []
+      },
+      "tinode": {
+        "action": "queryUsers",
+        "description": "Query Zoom participants and match fuzzy username"
+      }
+    },
+    "userOnline": {
+      "zoomOSC": {
+        "address": "/zoomosc/user/online",
+        "params": ["targetIndex", "userName", "galleryIndex", "zoomId"]
+      },
+      "tinode": {
+        "action": "addUser",
+        "message": {
+          "pres": {
+            "what": "on",
+            "src": "{zoomId}",
+            "seq": 0
+          }
+        }
+      }
+    },
+    "userOffline": {
+      "zoomOSC": {
+        "address": "/zoomosc/user/offline",
+        "params": ["targetIndex", "userName", "galleryIndex", "zoomId"]
+      },
+      "tinode": {
+        "action": "removeUser",
+        "message": {
+          "pres": {
+            "what": "off",
+            "src": "{zoomId}",
+            "seq": 0
+          }
+        }
+      }
+    },
+    "userNameChanged": {
+      "zoomOSC": {
+        "address": "/zoomosc/user/userNameChanged",
+        "params": ["targetIndex", "userName", "galleryIndex", "zoomId", "oldUserName"]
+      },
+      "tinode": {
+        "action": "updateUser",
+        "message": {
+          "pres": {
+            "what": "upd",
+            "src": "{zoomId}",
+            "seq": 0
+          }
+        }
+      }
+    },
+    "userList": {
+      "zoomOSC": {
+        "address": "/zoomosc/user/list",
+        "params": ["targetIndex", "userName", "galleryIndex", "zoomId", "audioStatus", "videoStatus", "handRaised", "isHost", "isSilenced", "isSpotlit", "isAllowedToSpeak"]
+      },
+      "tinode": {
+        "action": "provisionUser",
+        "message": {
+          "acc": {
+            "user": "{userName}",
+            "desc": {
+              "status": {
+                "audioStatus": "{audioStatus}",
+                "videoStatus": "{videoStatus}",
+                "handRaised": "{handRaised}",
+                "isHost": "{isHost}"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "messaging": {
+    "chatAll": {
+      "zoomOSC": {
+        "address": "/zoom/chatAll",
+        "params": ["message"]
+      },
+      "tinode": {
+        "action": "sendMessage",
+        "message": {
+          "pub": {
+            "topic": "{currentTopic}",
+            "content": {
+              "text": "{message}"
+            }
+          }
+        }
+      }
+    },
+    "chatUser": {
+      "zoomOSC": {
+        "address": "/zoomosc/user/chat",
+        "params": ["targetIndex", "userName", "galleryIndex", "zoomId", "message", "messageId"]
+      },
+      "tinode": {
+        "action": "receiveMessage",
+        "message": {
+          "pub": {
+            "id": "{messageId}",
+            "topic": "{currentTopic}",
+            "head": {
+              "from": "{tinodeId}",
+              "userName": "{userName}",
+              "zoomId": "{zoomId}",
+              "messageType": "chat"
+            },
+            "content": {
+              "fmt": [
+                {
+                  "at": 0,
+                  "len": "{messageLength}",
+                  "tp": "ZM"
+                }
+              ],
+              "text": "{message}"
+            }
+          }
+        }
+      }
+    },
+    "directMessage": {
+      "zoomOSC": {
+        "address": "/zoom/userName/chat",
+        "params": ["userName", "message"]
+      },
+      "tinode": {
+        "action": "sendDirectMessage",
+        "message": {
+          "pub": {
+            "topic": "p2p{userId}",
+            "content": "{message}"
+          }
+        }
+      }
+    }
+  },
+  "pinning": {
+    "togglePin": {
+      "zoomOSC": {
+        "address": "/zoom/userName/togglePin",
+        "params": ["userName"]
+      },
+      "tinode": {
+        "action": "botPin",
+        "description": "Trigger pinning via bot command"
+      }
+    },
+    "togglePin2": {
+      "zoomOSC": {
+        "address": "/zoom/userName/togglePin2",
+        "params": ["userName"]
+      },
+      "tinode": {
+        "action": "botPin2",
+        "description": "Trigger pinning to screen 2 via bot command"
+      }
+    }
+  }
+} 

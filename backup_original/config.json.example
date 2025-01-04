@@ -1,0 +1,32 @@
+{
+    "tinode": {
+        "host": "ws://localhost:6060/v0/channels",
+        "apiKey": "YOUR_API_KEY_HERE",
+        "login": "username",
+        "password": "password",
+        "topic": "grpZoomBridge",
+        "secure": false,
+        "reconnectInterval": 3000
+    },
+    "osc": {
+        "udp": {
+            "sourceHost": "0.0.0.0",
+            "sourcePort": 1247,
+            "listenPort": 8002,
+            "listenHost": "0.0.0.0",
+            "outbound": {
+                "host": "127.0.0.1",
+                "port": 1234
+            }
+        },
+        "messageMapping": {
+            "chat": "/zoomosc/user/chat",
+            "participantJoin": "/zoomosc/user/join",
+            "participantLeave": "/zoomosc/user/leave"
+        }
+    },
+    "logging": {
+        "level": "debug",
+        "file": "bridge.log"
+    }
+} 
