@@ -1,0 +1,45 @@
+
+### Questions You Need to Answer
+
+1. **Meeting Persistence:**
+
+   - Do you want to map specific Zoom meeting IDs to specific Tinode topics? A: yes. if somehow it's not provided by a ZoomOSC command (verify with me first if a proposed command to solicit the ID is correct or existent) 
+
+   - Should chat history persist between meetings? A: Yes. Note that meeting IDs an change from time to time when there are issues with the static meeting. the option to temporarily/permanently migrate chat data from previous meetings should be possible. 
+
+2. ZoomOSC Integration:
+Should the bridge verify ZoomOSC is running before starting? A: yes. verify through the OSC ping command. double check with me before you implement the command to be sure you're using the right one.
+
+How should it handle ZoomOSC disconnections? A: recommend a reconnect logic solution to me before implementing one for my approval and/or feedback.
+
+User Experience:
+Should users specify which meeting they're joining? A: I think they should specify, and they should also be prompted with the last three meetings, which should have meeting ID as well as the name of the meeting/topic included in the selection. For now keep it within the CLI. 
+
+How should direct messages be handled differently from group chat? A: They should be a separate private topic (refer to the Tinode https://github.com/tinode/chat/blob/master/docs/API.md#peer-to-peer-topics for info on private/peer to peer)
+
+
+
+ZoomOSC Ping Command: Looking at the ZoomOSC 4.5.1 Command Syntax, which command should we use to verify ZoomOSC is running? I see several options:
+/zoom/list
+/zoom/getQuestionList
+Another command you prefer? A: Actually the command is /zoom/ping. It would provide these arguments as a "pong with the message /zoomosc/pong/ {any pingArg (zero if none sent)} {str zoomOSCversion} {int subscribeMode} {int galTrackMode} {int inCallStatus 0 or 1} {int number of targets} {int number of users in call} {int isPro (1=true, 0-false)}.
+
+Meeting ID Retrieval: Which ZoomOSC command provides the current meeting ID? This is crucial for the mapping feature. This would not be existent to my knowledge. This would be specified by the user in the prompts we talked about ready. 
+
+Direct Message Format: In the current code (javascript:index.js startLine: 719 endLine: 751), we handle chat messages. Should direct messages use a different OSC address than /zoom/chatAll? Absolutely. Those messages are handled via: INBOUND: /zoomosc/user|me/chat usual user messages (4), {str message} {str message_id}, {int message_type}. The message_type argument will contain the number 4 if it's for the user directly (p2p) or the number 1 if it's meant for all users (a group topic in other words)
+
+OUTBOUND /zoom/userName/chat {standard arguments for outbound messaging} OR /zoom/users/zoomID/ if you wanqt to specfify based on their known userID. 
+
+Meeting History Storage: The code currently uses a simple JSON file. Would you prefer:
+Keep using JSON
+Switch to SQLite
+Use another storage method
+
+A: Let's keep both options available, but start with JSON because I believe hte user provisioning aspect will need SQL of some sort. 
+
+Once you provide these details, I'll create a comprehensive prompt for Cursor's AI Composer that will implement all the changes we discussed, including:
+Meeting persistence
+ZoomOSC verification
+Meeting selection CLI
+Direct message handling
+Reconnection logic

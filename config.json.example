@@ -28,5 +28,11 @@
     "logging": {
         "level": "debug",
         "file": "bridge.log"
+    },
+    "database": {
+        "host": "localhost",
+        "user": "tinode",
+        "password": "tinode-password",
+        "name": "tinode"
     }
 } 

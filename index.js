@@ -10,6 +10,9 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
+import Database from './database.js';
+import { promptForMeeting } from './cli.js';
+import inquirer from 'inquirer';
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -102,6 +105,13 @@ class ZoomTinodeBridge {
         // Handle process termination
         process.on('SIGINT', () => this.cleanup());
         process.on('SIGTERM', () => this.cleanup());
+
+        // Add database initialization
+        this.database = new Database(config);
+        
+        // Add ZoomOSC verification state
+        this.zoomOscVerified = false;
+        this.currentMeeting = null;
     }
 
     async cleanup() {
@@ -585,20 +595,60 @@ class ZoomTinodeBridge {
     }
 
     handleOSCMessage(oscMsg) {
-        const { address } = oscMsg;
+        const { address, args } = oscMsg;
+
+        // Handle pong messages
+        if (address === '/zoomosc/pong') {
+            return;
+        }
+
+        // Handle meeting status changes
+        if (address === '/zoomosc/meetingStatusChanged') {
+            const [statusCode, errorCode, exitCode] = args;
+            this.logger.info('Meeting status changed:', { statusCode, errorCode, exitCode });
+            
+            if (errorCode !== 0) {
+                this.handleZoomOSCDisconnection();
+            }
+            return;
+        }
 
         // Check if the command is in the ignored list
         const ignoredCommands = [
             '/zoomosc/user/mute',
             '/zoomosc/user/audioStatus',
             '/zoomosc/user/videoOn',
-            '/zoomosc/user/videoOff',
-            '/zoomosc/user/list'
+            '/zoomosc/user/videoOff'
         ];
 
         if (ignoredCommands.includes(address)) {
             this.ignoredLogger.info(`Ignored OSC message: ${this.formatMessage(oscMsg)}`);
             return; // Skip processing for ignored commands
+        }
+
+        // Special handling for user list messages
+        if (address === '/zoomosc/user/list') {
+            const [targetIndex, userName, galleryIndex, zoomId, audioStatus, videoStatus, handRaised, isHost, isSilenced, isSpotlit, isAllowedToSpeak] = args;
+            
+            // Track participant with extended info
+            this.participants.set(zoomId, {
+                name: userName,
+                tinodeId: `zoom${zoomId}`,
+                joinTime: Date.now(),
+                status: {
+                    audioStatus,
+                    videoStatus,
+                    handRaised,
+                    isHost
+                }
+            });
+
+            this.logger.debug('Updated participant info:', {
+                userName,
+                zoomId,
+                currentParticipants: Array.from(this.participants.entries())
+            });
+            return;
         }
 
         // Log pertinent commands
@@ -631,6 +681,18 @@ class ZoomTinodeBridge {
             handler.call(this, params, mapping.tinode);
         } else {
             this.logger.debug('Unhandled OSC message address:', address);
+        }
+
+        // Modify chat handling to check message type
+        if (address === '/zoomosc/user/chat') {
+            const messageType = args[args.length - 1];
+            if (messageType === 4) {
+                // Handle as direct message
+                this.handleDirectMessage(args);
+            } else if (messageType === 1) {
+                // Handle as group message
+                this.handleGroupMessage(args);
+            }
         }
     }
 
@@ -718,36 +780,8 @@ class ZoomTinodeBridge {
 
     handleChatUser(params, tinodeConfig) {
         const { userName, zoomId, message, messageId } = params;
-        
-        // Enhanced logging for incoming message
-        this.logger.info('Received chat message from ZoomOSC:', {
-            userName,
-            zoomId,
-            message,
-            messageId,
-            timestamp: new Date().toISOString()
-        });
-
-        // Get the Tinode user ID for this Zoom participant
         const participant = this.participants.get(zoomId);
-        if (!participant) {
-            this.logger.error(`Unknown participant ${zoomId} trying to send message`, {
-                currentParticipants: Array.from(this.participants.entries()),
-                message: message,
-                timestamp: new Date().toISOString()
-            });
-            return;
-        }
 
-        // Log connection state
-        this.logger.info('Connection state:', {
-            isConnected: this.isConnected,
-            currentTopic: this.currentTopic,
-            wsReadyState: this.ws ? this.ws.readyState : 'no websocket',
-            timestamp: new Date().toISOString()
-        });
-
-        // Forward to Tinode with proper formatting
         if (this.isConnected && this.currentTopic && this.ws.readyState === WebSocket.OPEN) {
             const pubMsg = {
                 "pub": {
@@ -759,16 +793,8 @@ class ZoomTinodeBridge {
                         "zoomId": zoomId.toString(),
                         "messageType": "chat"
                     },
-                    "content": {
-                        "fmt": [
-                            {
-                                "at": 0,
-                                "len": message.length,
-                                "tp": "ZM"
-                            }
-                        ],
-                        "text": message
-                    }
+                    // Send as plain text
+                    "content": message
                 }
             };
 
@@ -851,12 +877,129 @@ class ZoomTinodeBridge {
         }
     }
 
-    start() {
+    async start() {
         this.logger.info('Starting Zoom-Tinode bridge...');
-        return this.connectToTinode().catch(err => {
-            this.logger.error('Failed to connect to Tinode:', err);
+        
+        try {
+            // Connect to database first
+            await this.database.connect();
+            
+            // Verify ZoomOSC is running with user-friendly messages
+            try {
+                await this.verifyZoomOSC();
+                this.zoomOscVerified = true;
+            } catch (err) {
+                if (err.message.includes('ZoomOSC verification')) {
+                    console.log('\n' + err.message);
+                    process.exit(1);
+                }
+                throw err;
+            }
+
+            // Spawn a new terminal window for meeting selection
+            const isWindows = process.platform === 'win32';
+            const meetingSelectionScript = path.join(__dirname, 'meeting-select.js');
+            
+            // Create the meeting selection script if it doesn't exist
+            if (!fs.existsSync(meetingSelectionScript)) {
+                const scriptContent = `
+import Database from './database.js';
+import { promptForMeeting } from './cli.js';
+import fs from 'fs';
+import path from 'path';
+
+const config = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'config.json')));
+const database = new Database(config);
+
+async function selectMeeting() {
+    try {
+        await database.connect();
+        const recentMeetings = await database.getRecentMeetings();
+        const selection = await promptForMeeting(recentMeetings);
+        
+        if (selection.isNew) {
+            const topicName = 'grp' + Math.random().toString(36).substr(2, 9);
+            await database.addMeeting(
+                selection.meetingId,
+                topicName,
+                selection.title,
+                selection.description
+            );
+            selection.topic_name = topicName;
+        } else {
+            await database.updateMeetingLastUsed(selection.meeting_id);
+        }
+        
+        // Write selection to temp file for parent process to read
+        fs.writeFileSync(path.join(process.cwd(), 'meeting-selection.tmp'), 
+            JSON.stringify(selection));
+        
+        process.exit(0);
+    } catch (err) {
+        console.error('Error during meeting selection:', err);
+        process.exit(1);
+    }
+}
+
+selectMeeting();`;
+                fs.writeFileSync(meetingSelectionScript, scriptContent);
+            }
+
+            // Spawn the meeting selection process in a new window
+            const command = isWindows ? 
+                ['Start-Process', 'powershell', '-ArgumentList', `"-NoExit node ${meetingSelectionScript}"`] :
+                ['osascript', '-e', `tell application "Terminal" to do script "node ${meetingSelectionScript}"`];
+
+            const spawnOptions = {
+                shell: true,
+                stdio: 'ignore'
+            };
+
+            if (isWindows) {
+                spawn('powershell', command, spawnOptions);
+            } else {
+                spawn(command[0], command.slice(1), spawnOptions);
+            }
+
+            // Wait for meeting selection to complete
+            const selectionFile = path.join(process.cwd(), 'meeting-selection.tmp');
+            let selection = null;
+            
+            while (!selection) {
+                if (fs.existsSync(selectionFile)) {
+                    try {
+                        selection = JSON.parse(fs.readFileSync(selectionFile, 'utf8'));
+                        fs.unlinkSync(selectionFile); // Clean up temp file
+                    } catch (err) {
+                        // File might not be completely written yet
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        continue;
+                    }
+                }
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+
+            // Process the selection
+            if (selection.isNew) {
+                this.currentMeeting = {
+                    meeting_id: selection.meetingId,
+                    topic_name: selection.topic_name,
+                    title: selection.title
+                };
+            } else {
+                this.currentMeeting = selection;
+            }
+            
+            // Set the topic ID for Tinode
+            this.topicId = this.currentMeeting.topic_name;
+            
+            // Connect to Tinode
+            await this.connectToTinode();
+            
+        } catch (err) {
+            this.logger.error('Failed to start bridge:', err);
             throw err;
-        });
+        }
     }
 
     sendOSCMessage(address, args) {
@@ -868,6 +1011,191 @@ class ZoomTinodeBridge {
             }, host, port);
             this.logger.debug(`Sent OSC message to ${host}:${port}`, { address, args });
         }
+    }
+
+    // Add new method for ZoomOSC verification
+    async verifyZoomOSC() {
+        const maxAttempts = 30; // 30 attempts = 5 minutes total
+        let attempts = 0;
+
+        console.log('\nWaiting for ZoomOSC to be available...');
+        console.log('Please make sure ZoomOSC is running.');
+        console.log('Press Ctrl+C to exit if you need to cancel.\n');
+
+        while (attempts < maxAttempts) {
+            try {
+                await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => {
+                        reject(new Error('attempt_timeout'));
+                    }, 10000); // 10 second timeout per attempt
+
+                    const pongHandler = (oscMsg) => {
+                        if (oscMsg.address === '/zoomosc/pong') {
+                            clearTimeout(timeout);
+                            this.udpPort.removeListener('message', pongHandler);
+                            const [pingArg, version, subscribeMode, galTrackMode, inCallStatus, targets, users, isPro] = oscMsg.args;
+                            this.logger.info('ZoomOSC verified:', {
+                                version,
+                                inCallStatus,
+                                users
+                            });
+                            resolve(true);
+                        }
+                    };
+
+                    this.udpPort.on('message', pongHandler);
+                    this.sendOSCMessage('/zoom/ping', [1]);
+                });
+
+                console.log('Successfully connected to ZoomOSC!');
+                return true;
+
+            } catch (err) {
+                attempts++;
+                if (err.message === 'attempt_timeout') {
+                    process.stdout.write(`Waiting for ZoomOSC to respond... (${attempts}/${maxAttempts})\r`);
+                    await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds between attempts
+                    continue;
+                }
+                throw err; // Rethrow other errors
+            }
+        }
+
+        throw new Error('ZoomOSC verification failed after 5 minutes. Please make sure ZoomOSC is running and try again.');
+    }
+
+    // Add new method for handling ZoomOSC disconnections
+    async handleZoomOSCDisconnection() {
+        this.logger.warn('ZoomOSC disconnection detected');
+        this.zoomOscVerified = false;
+        
+        // Wait 5 seconds before attempting reconnection
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        try {
+            await this.verifyZoomOSC();
+            this.zoomOscVerified = true;
+            this.logger.info('Successfully reconnected to ZoomOSC');
+        } catch (err) {
+            this.logger.error('Failed to reconnect to ZoomOSC:', err);
+            // Could implement additional retry logic here
+        }
+    }
+
+    // Add new methods for handling different message types
+    handleGroupMessage(args) {
+        const [userName, zoomId, message, messageId, messageType] = args;
+        
+        // Use existing group topic
+        if (this.currentTopic && this.isConnected && this.ws.readyState === WebSocket.OPEN) {
+            const pubMsg = {
+                "pub": {
+                    "id": `${Date.now()}`,
+                    "topic": this.currentTopic,
+                    "content": message
+                }
+            };
+
+            try {
+                this.ws.send(JSON.stringify(pubMsg));
+                this.logger.info('Successfully sent message to Tinode', {
+                    messageId: pubMsg.pub.id,
+                    topic: this.currentTopic,
+                    timestamp: new Date().toISOString()
+                });
+            } catch (err) {
+                this.logger.error('Failed to send message to Tinode', {
+                    error: err.message,
+                    stack: err.stack,
+                    pubMsg,
+                    timestamp: new Date().toISOString()
+                });
+            }
+        } else {
+            this.logger.error('Cannot send message - connection state invalid', {
+                isConnected: this.isConnected,
+                currentTopic: this.currentTopic,
+                wsReadyState: this.ws ? this.ws.readyState : 'no websocket',
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
+    handleDirectMessage(args) {
+        const [userName, zoomId, message, messageId, messageType] = args;
+        
+        if (this.isConnected && this.ws.readyState === WebSocket.OPEN) {
+            // Create P2P topic name using Tinode's format
+            const p2pTopicName = `usr${zoomId}`;  // Changed to match Tinode's P2P format
+            
+            const pubMsg = {
+                "pub": {
+                    "id": `${Date.now()}`,
+                    "topic": p2pTopicName,
+                    "content": message
+                }
+            };
+
+            try {
+                // First try to subscribe to P2P topic if not already subscribed
+                const subMsg = {
+                    "sub": {
+                        "id": `${Date.now()}`,
+                        "topic": p2pTopicName,
+                        "get": {
+                            "what": "desc sub data del"
+                        }
+                    }
+                };
+                
+                this.ws.send(JSON.stringify(subMsg));
+                
+                // Send the actual message
+                this.ws.send(JSON.stringify(pubMsg));
+                this.logger.info('Successfully sent direct message to Tinode', {
+                    messageId: pubMsg.pub.id,
+                    topic: p2pTopicName,
+                    timestamp: new Date().toISOString()
+                });
+            } catch (err) {
+                this.logger.error('Failed to send direct message to Tinode', {
+                    error: err.message,
+                    stack: err.stack,
+                    pubMsg,
+                    timestamp: new Date().toISOString()
+                });
+            }
+        } else {
+            this.logger.error('Cannot send direct message - connection state invalid', {
+                isConnected: this.isConnected,
+                wsReadyState: this.ws ? this.ws.readyState : 'no websocket',
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
+    // Add method for P2P topic setup
+    async setupP2PTopic(topicName, userName) {
+        if (!this.isConnected || !this.ws) return;
+        
+        const subMsg = {
+            "sub": {
+                "id": `sub${Date.now()}`,
+                "topic": topicName,
+                "set": {
+                    "desc": {
+                        "public": {
+                            "fn": userName
+                        }
+                    },
+                    "sub": {
+                        "mode": "JRWPS"
+                    }
+                }
+            }
+        };
+        
+        this.ws.send(JSON.stringify(subMsg));
     }
 }
 

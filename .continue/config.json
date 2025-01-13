@@ -1,0 +1,170 @@
+{
+  "models": [
+    {
+      "model": "claude-3-5-sonnet-latest",
+      "provider": "anthropic",
+      "apiKey": "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",
+      "title": "Claude 3.5 Sonnet"
+    },
+    {
+      "model": "claude-3-haiku-20240307",
+      "provider": "anthropic",
+      "apiKey": "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",
+      "title": "Claude 3 Haiku"
+    },
+    {
+      "apiBase": "http://localhost:1234/v1/",
+      "model": "AUTODETECT",
+      "title": "Autodetect",
+      "provider": "lmstudio"
+    }
+  ],
+  "customCommands": [
+    {
+      "name": "test",
+      "prompt": "{{{ input }}}\n\nWrite a comprehensive set of unit tests for the selected code. It should setup, run tests that check for correctness including important edge cases, and teardown. Ensure that the tests are complete and sophisticated. Give the tests just as chat output, don't edit any file.",
+      "description": "Write unit tests for highlighted code"
+    }
+  ],
+  "contextProviders": [
+    {
+      "name": "code",
+      "params": {
+        "maxChars": 30000,
+        "maxFiles": 30
+      }
+    },
+    {
+      "name": "docs",
+      "params": {
+        "maxChars": 20000
+      }
+    },
+    {
+      "name": "diff",
+      "params": {
+        "maxChars": 10000
+      }
+    },
+    {
+      "name": "web",
+      "params": {
+        "maxResults": 3,
+        "maxChars": 8000
+      }
+    },
+    {
+      "name": "terminal",
+      "params": {
+        "maxChars": 5000
+      }
+    },
+    {
+      "name": "problems",
+      "params": {
+        "maxResults": 50
+      }
+    },
+    {
+      "name": "folder",
+      "params": {
+        "maxFiles": 100
+      }
+    },
+    {
+      "name": "codebase",
+      "params": {
+        "maxFiles": 30,
+        "maxChars": 30000
+      }
+    },
+    {
+      "name": "url",
+      "params": {
+        "maxChars": 10000
+      }
+    },
+    {
+      "name": "tree",
+      "params": {
+        "maxFiles": 100
+      }
+    },
+    {
+      "name": "repo-map",
+      "params": {
+        "maxFiles": 1000
+      }
+    }
+  ],
+  "docs": [
+    {
+      "startUrl": "https://github.com/tinode/chat/blob/master/docs/API.md",
+      "rootUrl": "https://github.com/tinode/chat",
+      "title": "Tinode API",
+      "maxDepth": 3,
+      "faviconUrl": "https://github.com/favicon.ico"
+    },
+    {
+      "startUrl": "https://github.com/tinode/chat/tree/master/docs",
+      "rootUrl": "https://github.com/tinode/chat",
+      "title": "Tinode Documentation",
+      "maxDepth": 3,
+      "faviconUrl": "https://github.com/favicon.ico"
+    },
+    {
+      "startUrl": "https://github.com/colinbdclark/osc.js",
+      "rootUrl": "https://github.com/colinbdclark/osc.js",
+      "title": "OSC.js",
+      "maxDepth": 2,
+      "faviconUrl": "https://github.com/favicon.ico"
+    },
+    {
+      "startUrl": "https://github.com/dumbmatter/fakeIndexedDB",
+      "rootUrl": "https://github.com/dumbmatter/fakeIndexedDB",
+      "title": "fake-indexeddb",
+      "maxDepth": 2,
+      "faviconUrl": "https://github.com/favicon.ico"
+    },
+    {
+      "startUrl": "https://github.com/pwnall/node-xhr2",
+      "rootUrl": "https://github.com/pwnall/node-xhr2",
+      "title": "xhr2",
+      "maxDepth": 2,
+      "faviconUrl": "https://github.com/favicon.ico"
+    },
+    {
+      "startUrl": "https://nodemon.io",
+      "rootUrl": "https://nodemon.io",
+      "title": "nodemon",
+      "maxDepth": 2,
+      "faviconUrl": "https://nodemon.io/favicon.ico"
+    },
+    {
+      "startUrl": "https://github.com/tinode/chat",
+      "rootUrl": "https://github.com/tinode/chat",
+      "title": "tinode-sdk",
+      "maxDepth": 3,
+      "faviconUrl": "https://github.com/favicon.ico"
+    },
+    {
+      "startUrl": "https://github.com/winstonjs/winston",
+      "rootUrl": "https://github.com/winstonjs/winston",
+      "title": "winston",
+      "maxDepth": 2,
+      "faviconUrl": "https://github.com/favicon.ico"
+    },
+    {
+      "startUrl": "https://github.com/websockets/ws",
+      "rootUrl": "https://github.com/websockets/ws",
+      "title": "ws",
+      "maxDepth": 2,
+      "faviconUrl": "https://github.com/favicon.ico"
+    }
+  ],
+  "experimental": {
+    "useChromiumForDocsCrawling": true,
+    "useCopyBuffer": true,
+    "useSpeculativeExecution": true
+  }
+} 

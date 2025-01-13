@@ -1,21 +1,21 @@
 {
     "tinode": {
         "host": "ws://localhost:6060/v0/channels",
-        "apiKey": "YOUR_API_KEY_HERE",
-        "login": "username",
-        "password": "password",
-        "topic": "grpZoomBridge",
+        "apiKey": "AQEAAAABAAD_rAp4DJh05a1HAwFT3A6K",
+        "login": "alice",
+        "password": "alice123",
+        "topic": "grptest",
         "secure": false,
         "reconnectInterval": 3000
     },
     "osc": {
         "udp": {
-            "sourceHost": "0.0.0.0",
+            "sourceHost": "2.0.0.0",
             "sourcePort": 1247,
             "listenPort": 8002,
             "listenHost": "0.0.0.0",
             "outbound": {
-                "host": "127.0.0.1",
+                "host": "192.168.2.1",
                 "port": 1234
             }
         },
@@ -28,5 +28,12 @@
     "logging": {
         "level": "debug",
         "file": "bridge.log"
+    },
+    "database": {
+        "host": "localhost",
+        "user": "tinode",
+        "password": "tinode",
+        "name": "tinode",
+        "port": 3306
     }
 } 
